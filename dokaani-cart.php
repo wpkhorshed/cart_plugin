@@ -68,7 +68,7 @@ if ( ! class_exists( 'Cart_Main' ) ) {
 			if ( $query->have_posts() ) {
 				while ( $query->have_posts() ) {
 					$query->the_post();
-					$thumb_url = get_post_meta( get_the_ID(), 'product_thumb_url', true ) ?? ''; ?>
+					$thumb_url = get_post_meta( get_the_ID(), 'dokaani_product_thumb_url', true ) ?? ''; ?>
 
                     <div class="col-span-12 md:col-span-6 lg:col-span-4 xl:col-span-3">
                         <div class="bg-gray-100 rounded-lg border border-gray-300 p-7">
@@ -105,10 +105,10 @@ if ( ! class_exists( 'Cart_Main' ) ) {
                                 </div>
                                 <h6 class="text-lg font-semibold text-gray-950 mb-3"><?php echo get_post_meta( get_the_ID(), 'post_title', true ); ?></h6>
                                 <div class="flex items-center justify-center space-x-2 mb-8">
-                                    <span class="line-through text-base font-bold text-gray-300">$<?php echo get_post_meta( get_the_ID(), 'product_regular_price', true ); ?></span>
-                                    <span class="text-base font-bold text-gray-950">$<?php echo get_post_meta( get_the_ID(), 'product_sale_price', true ); ?></span>
+                                    <span class="line-through text-base font-bold text-gray-300">$<?php echo get_post_meta( get_the_ID(), 'dokaani_product_regular_price', true ); ?></span>
+                                    <span class="text-base font-bold text-gray-950">$<?php echo get_post_meta( get_the_ID(), 'dokaani_product_sale_price', true ); ?></span>
                                 </div>
-                                <button class="text-base font-roboto font-medium text-gray-950 hover:text-white px-8 py-2 rounded-full border border-primary-700 hover:bg-primary-700"><a href="?add_to_cart=<?php echo get_the_ID(); ?>">Add to cart</a></button>
+                                <button class="text-base font-roboto font-medium text-gray-950 hover:text-white px-8 py-2 rounded-full border border-primary-700 hover:bg-primary-700"><a href="?add_to_cart=<?php echo get_the_ID(); ?>"><?php echo esc_html__('Add to cart','dokaani-cart') ?></a></button>
                             </div>
                         </div>
                     </div>
@@ -131,7 +131,7 @@ if ( ! class_exists( 'Cart_Main' ) ) {
 			$product_ids = isset( $_COOKIE['dokaani_cart'] ) ? json_decode( stripslashes( $_COOKIE['dokaani_cart'] ), true ) : array();
 			if ( $product_ids && is_array( $product_ids ) ) {
 				foreach ( $product_ids as $product_id => $value ):
-					$thumb_url = get_post_meta( $product_id, 'product_thumb_url', true );
+					$thumb_url = get_post_meta( $product_id, 'dokaani_product_thumb_url', true );
 					?>
                     <div class="rounded-lg border border-gray-200 bg-white p-4 shadow-sm dark:border-gray-700 dark:bg-gray-800 md:p-6">
                         <div class="space-y-4 md:flex md:items-center md:justify-between md:gap-6 md:space-y-0">
@@ -140,7 +140,7 @@ if ( ! class_exists( 'Cart_Main' ) ) {
                                 <img class="hidden h-20 w-20 dark:block" src="https://flowbite.s3.amazonaws.com/blocks/e-commerce/imac-front-dark.svg" alt="imac image">
                             </a>
 
-                            <label for="counter-input" class="sr-only">Choose quantity:</label>
+                            <label for="counter-input" class="sr-only"><?php echo esc_html__('Choose quantity:','dokaani-cart') ?></label>
                             <div class="flex items-center justify-between md:order-3 md:justify-end">
                                 <div class="flex items-center">
                                     <button type="button" id="decrement-button" data-input-counter-decrement="counter-input" class="inline-flex h-5 w-5 shrink-0 items-center justify-center rounded-md border border-gray-300 bg-gray-100 hover:bg-gray-200 focus:outline-none focus:ring-2 focus:ring-gray-100 dark:border-gray-600 dark:bg-gray-700 dark:hover:bg-gray-600 dark:focus:ring-gray-700">
@@ -156,7 +156,7 @@ if ( ! class_exists( 'Cart_Main' ) ) {
                                     </button>
                                 </div>
                                 <div class="text-end md:order-4 md:w-32">
-                                    <p class="text-base font-bold text-gray-900 dark:text-white">$<?php echo get_post_meta( $product_id, 'product_sale_price', true ); ?></p>
+                                    <p class="text-base font-bold text-gray-900 dark:text-white">$<?php echo get_post_meta( $product_id, 'dokaani_product_sale_price', true ); ?></p>
                                 </div>
                             </div>
 
@@ -168,14 +168,14 @@ if ( ! class_exists( 'Cart_Main' ) ) {
                                         <svg class="me-1.5 h-5 w-5" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" width="24" height="24" fill="none" viewBox="0 0 24 24">
                                             <path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12.01 6.001C6.5 1 1 8 5.782 13.001L12.011 20l6.23-7C23 8 17.5 1 12.01 6.002Z"></path>
                                         </svg>
-                                        Add to Favorites
+                                       <?php echo esc_html__(' Add to Favorites','dokaani_cart') ?>
                                     </button>
 
                                     <button type="button" class="inline-flex items-center text-sm font-medium text-red-600 hover:underline dark:text-red-500">
                                         <svg class="me-1.5 h-5 w-5" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" width="24" height="24" fill="none" viewBox="0 0 24 24">
                                             <path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18 17.94 6M18 18 6.06 6"></path>
                                         </svg>
-                                        <a href="?remove_item=<?php echo $product_id; ?>"><?php echo esc_html__( 'Remove' ) ?></a>
+                                        <a href="?remove_item=<?php echo $product_id; ?>"><?php echo esc_html__( 'Remove','dokaani_cart' ) ?></a>
                                     </button>
                                 </div>
                             </div>

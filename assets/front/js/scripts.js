@@ -44,4 +44,70 @@
         });
     });
 
+    $(document).on('click', '#dokaani-increment-button', function () {
+        var thisButton = $(this);
+        let productIncrementID = thisButton.data('product-increment-id');
+
+        $.ajax({
+            type: 'post',
+            url: pluginObject.ajaxurl,
+            data: {
+                'action': 'increase_item',
+                'product_increment_id': productIncrementID,
+            },
+            success: function (response) {
+                if (response.success) {
+                    window.location.reload();
+                } else {
+                    console.error(response.data.message);
+                }
+            }
+        });
+    });
+
+    $(document).on('click', '#dokaani-decrement-button', function () {
+        var thisButton = $(this);
+        let productDecrementID = thisButton.data('product-decrement-id');
+
+        $.ajax({
+            type: 'post',
+            url: pluginObject.ajaxurl,
+            data: {
+                'action': 'decrease_item',
+                'product_decrement_id': productDecrementID,
+            },
+            success: function (response) {
+                if (response.success) {
+                    window.location.reload();
+                } else {
+                    console.error(response.data.message);
+                }
+            }
+        });
+    });
+
+    $(document).on('change', "#dokaani-quantity-input", function () {
+
+        var thisField = jQuery(this),
+            inputValue = thisField.val(),
+            inputProductID = thisField.data('input-product-id');
+
+        $.ajax({
+            type: 'post',
+            url: pluginObject.ajaxurl,
+            data: {
+                'action': 'input_quantity',
+                'input_value': inputValue,
+                'product_id': inputProductID,
+            },
+            success: function (response) {
+                if (response.success) {
+                    thisButton.html('Cart Added')
+                } else {
+                    console.error(response.data.message);
+                }
+            }
+        });
+    });
+
 })(jQuery, window, document, dokaani_cart);

@@ -33,6 +33,59 @@ if ( ! class_exists( 'Cart_Main' ) ) {
 
 			add_action( 'wp_ajax_remove_cart', array( $this, 'handle_remove_cart' ) );
 			add_action( 'wp_ajax_nopriv_remove_cart', array( $this, 'handle_remove_cart' ) );
+
+			add_action( 'wp_ajax_increase_item', array( $this, 'handle_increase_item' ) );
+			add_action( 'wp_ajax_nopriv_increase_item', array( $this, 'handle_increase_item' ) );
+
+			add_action( 'wp_ajax_decrease_item', array( $this, 'handle_decrease_item' ) );
+			add_action( 'wp_ajax_nopriv_decrease_item', array( $this, 'handle_decrease_item' ) );
+
+			add_action( 'wp_ajax_input_quantity', array( $this, 'handle_input_quantity' ) );
+			add_action( 'wp_ajax_nopriv_input_quantity', array( $this, 'handle_input_quantity' ) );
+		}
+
+		function handle_input_quantity() {
+			$product_id  = $_POST['product_id'] ?? '';
+			$input_value = $_POST['input_value'] ?? '';
+
+			$cart = isset( $_COOKIE['dokaani_cart'] ) ? json_decode( stripslashes( $_COOKIE['dokaani_cart'] ), true ) : array();
+			if ( $product_id && $input_value ) {
+				if ( isset( $cart[ $product_id ] ) ) {
+					$cart[ $product_id ] = $input_value;
+				}
+			}
+			$set = setcookie( 'dokaani_cart', json_encode( $cart ), time() + ( 86400 * 30 ), "/" );
+			if ( $set ) {
+				wp_send_json_success( [ 'message' => esc_html__( 'Increase item', 'dokaani-cart' ) ] );
+			}
+		}
+
+		function handle_decrease_item() {
+			$product_id = $_POST['product_decrement_id'] ?? '';
+			$cart       = isset( $_COOKIE['dokaani_cart'] ) ? json_decode( stripslashes( $_COOKIE['dokaani_cart'] ), true ) : array();
+
+			if ( isset( $cart[ $product_id ] ) ) {
+				$cart[ $product_id ] --;
+			}
+
+			$set = setcookie( 'dokaani_cart', json_encode( $cart ), time() + ( 86400 * 30 ), "/" );
+			if ( $set ) {
+				wp_send_json_success( [ 'message' => esc_html__( 'Increase item', 'dokaani-cart' ) ] );
+			}
+		}
+
+		function handle_increase_item() {
+			$product_id = $_POST['product_increment_id'] ?? '';
+			$cart       = isset( $_COOKIE['dokaani_cart'] ) ? json_decode( stripslashes( $_COOKIE['dokaani_cart'] ), true ) : array();
+
+			if ( isset( $cart[ $product_id ] ) ) {
+				$cart[ $product_id ] ++;
+			}
+
+			$set = setcookie( 'dokaani_cart', json_encode( $cart ), time() + ( 86400 * 30 ), "/" );
+			if ( $set ) {
+				wp_send_json_success( [ 'message' => esc_html__( 'Increase item', 'dokaani-cart' ) ] );
+			}
 		}
 
 		function handle_remove_cart() {
@@ -128,10 +181,12 @@ if ( ! class_exists( 'Cart_Main' ) ) {
 		}
 
 		function display_all_carts() {
-			$product_ids = isset( $_COOKIE['dokaani_cart'] ) ? json_decode( stripslashes( $_COOKIE['dokaani_cart'] ), true ) : array();
+			$product_ids        = isset( $_COOKIE['dokaani_cart'] ) ? json_decode( stripslashes( $_COOKIE['dokaani_cart'] ), true ) : array();
+
 			if ( $product_ids && is_array( $product_ids ) ) {
-				foreach ( $product_ids as $product_id => $value ):
+				foreach ( $product_ids as $product_id => $quantity ):
 					$thumb_url = get_post_meta( $product_id, 'dokaani_product_thumb_url', true );
+					$sale_price = get_post_meta( $product_id, 'dokaani_product_sale_price', true );
 					?>
                     <div class="dokaani-cart-wrap rounded-lg border border-gray-200 bg-white p-4 shadow-sm dark:border-gray-700 dark:bg-gray-800 md:p-6">
                         <div class="space-y-4 md:flex md:items-center md:justify-between md:gap-6 md:space-y-0">
@@ -142,20 +197,22 @@ if ( ! class_exists( 'Cart_Main' ) ) {
                             <label for="counter-input" class="sr-only"><?php echo esc_html__( 'Choose quantity:', 'dokaani-cart' ) ?></label>
                             <div class="flex items-center justify-between md:order-3 md:justify-end">
                                 <div class="flex items-center">
-                                    <button type="button" id="decrement-button" data-input-counter-decrement="counter-input" class="inline-flex h-5 w-5 shrink-0 items-center justify-center rounded-md border border-gray-300 bg-gray-100 hover:bg-gray-200 focus:outline-none focus:ring-2 focus:ring-gray-100 dark:border-gray-600 dark:bg-gray-700 dark:hover:bg-gray-600 dark:focus:ring-gray-700">
+                                    <button type="button" data-product-decrement-id="<?php echo esc_attr( $product_id ); ?>" id="dokaani-decrement-button" data-input-counter-decrement="counter-input" class="inline-flex h-5 w-5 shrink-0 items-center justify-center rounded-md border border-gray-300 bg-gray-100 hover:bg-gray-200 focus:outline-none focus:ring-2 focus:ring-gray-100 dark:border-gray-600 dark:bg-gray-700 dark:hover:bg-gray-600 dark:focus:ring-gray-700">
                                         <svg class="h-2.5 w-2.5 text-gray-900 dark:text-white" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 18 2">
                                             <path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M1 1h16"/>
                                         </svg>
                                     </button>
-                                    <input type="text" id="counter-input" data-input-counter class="w-10 shrink-0 border-0 bg-transparent text-center text-sm font-medium text-gray-900 focus:outline-none focus:ring-0 dark:text-white" placeholder="" value="2" required/>
-                                    <button type="button" id="increment-button" data-input-counter-increment="counter-input" class="inline-flex h-5 w-5 shrink-0 items-center justify-center rounded-md border border-gray-300 bg-gray-100 hover:bg-gray-200 focus:outline-none focus:ring-2 focus:ring-gray-100 dark:border-gray-600 dark:bg-gray-700 dark:hover:bg-gray-600 dark:focus:ring-gray-700">
+
+                                    <input type="text" id="dokaani-quantity-input" data-input-product-id="<?php echo esc_attr( $product_id ); ?>" class="w-10 shrink-0 border-0 bg-transparent text-center text-sm font-medium text-gray-900 focus:outline-none focus:ring-0 dark:text-white" placeholder="" value="<?php echo esc_attr( $quantity ); ?>" required/>
+
+                                    <button type="button" data-product-increment-id="<?php echo esc_attr( $product_id ); ?>" id="dokaani-increment-button" data-input-counter-increment="counter-input" class="inline-flex h-5 w-5 shrink-0 items-center justify-center rounded-md border border-gray-300 bg-gray-100 hover:bg-gray-200 focus:outline-none focus:ring-2 focus:ring-gray-100 dark:border-gray-600 dark:bg-gray-700 dark:hover:bg-gray-600 dark:focus:ring-gray-700">
                                         <svg class="h-2.5 w-2.5 text-gray-900 dark:text-white" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 18 18">
                                             <path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 1v16M1 9h16"/>
                                         </svg>
                                     </button>
                                 </div>
                                 <div class="text-end md:order-4 md:w-32">
-                                    <p class="text-base font-bold text-gray-900 dark:text-white">$<?php echo get_post_meta( $product_id, 'dokaani_product_sale_price', true ); ?></p>
+                                    <p class="text-base font-bold text-gray-900 dark:text-white"><?php echo ( $sale_price * $quantity ) . ' TK'; ?></p>
                                 </div>
                             </div>
 

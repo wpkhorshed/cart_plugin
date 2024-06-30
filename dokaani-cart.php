@@ -1,10 +1,9 @@
 <?php
-
 /*
-	Plugin Name: Dokaani Cart Plugin
+	Plugin Name: Dokaani Cart
 	Plugin URI: https://dokaani.com/
-	Description: Dokaani Cart Plugin.
-	Version: 1.0.3
+	Description: Dokaani Cart.
+	Version: 1.0.1
 	Text Domain: dokaani-cart
 	Author: dokaani
 	License: GPLv2 or later
@@ -12,41 +11,49 @@
 */
 
 defined( 'ABSPATH' ) || exit;
+defined( 'PLUGIN_URL' ) || define( 'PLUGIN_URL', WP_PLUGIN_URL . '/' . plugin_basename( dirname( __FILE__ ) ) . '/' );
+defined( 'PLUGIN_DIR' ) || define( 'PLUGIN_DIR', plugin_dir_path( __FILE__ ) );
+defined( 'PLUGIN_FILE' ) || define( 'PLUGIN_FILE', plugin_basename( __FILE__ ) );
+defined( 'PLUGIN_VERSION' ) || define( 'PLUGIN_VERSION', '1.0.0' );
 
 if ( ! class_exists( 'Cart_Main' ) ) {
 	class Cart_Main {
 
+		protected static $_instance = null;
+		protected static $_script_version = null;
+
 		function __construct() {
-			add_action( 'template_redirect', array( $this, 'cart_handle_actions' ) );
-			add_shortcode( 'dokaani_cart_products', array( $this, 'cart_products_shortcode' ) );
-			add_shortcode( 'dokaani_cart', array( $this, 'cart_shortcode' ) );
 
+			$this->define_scripts();
+			add_shortcode( 'dokaani_cart_products', array( $this, 'shortcode_products' ) );
+			add_shortcode( 'dokaani_cart', array( $this, 'shortcode_carts' ) );
+
+			add_action( 'wp_ajax_add_to_cart', array( $this, 'handle_add_to_cart' ) );
+			add_action( 'wp_ajax_nopriv_add_to_cart', array( $this, 'handle_add_to_cart' ) );
+
+			add_action( 'wp_ajax_remove_cart', array( $this, 'handle_remove_cart' ) );
+			add_action( 'wp_ajax_nopriv_remove_cart', array( $this, 'handle_remove_cart' ) );
+		}
+
+		function handle_remove_cart() {
+			$product_id = $_POST['product_id'] ?? '';
+			$cart       = isset( $_COOKIE['dokaani_cart'] ) ? json_decode( stripslashes( $_COOKIE['dokaani_cart'] ), true ) : array();
+
+			if ( isset( $cart[ $product_id ] ) ) {
+				unset( $cart[ $product_id ] );
+			}
+
+			$remove = setcookie( 'dokaani_cart', json_encode( $cart ), time() + ( 86400 * 30 ), "/" );
+			if ( $remove ) {
+				wp_send_json_success( [ 'message' => esc_html__( 'Cart Deleted', 'dokaani-cart' ) ] );
+			}
 
 		}
 
-		function cart_handle_actions() {
-			if ( isset( $_GET['add_to_cart'] ) ) {
-				$this->cart_add_item( $_GET['add_to_cart'] );
-				wp_redirect( remove_query_arg( 'add_to_cart' ) );
-				exit;
-			}
+		function handle_add_to_cart() {
 
-			if ( isset( $_GET['remove_item'] ) ) {
-				$this->cart_remove_item( $_GET['remove_item'] );
-				wp_redirect( remove_query_arg( 'remove_item' ) );
-				exit;
-			}
-
-			if ( isset( $_GET['clear_cart'] ) ) {
-				$this->cart_clear();
-				wp_redirect( remove_query_arg( 'clear_cart' ) );
-				exit;
-			}
-		}
-
-
-		function cart_add_item( $product_id ) {
-			$cart = isset( $_COOKIE['dokaani_cart'] ) ? json_decode( stripslashes( $_COOKIE['dokaani_cart'] ), true ) : array();
+			$product_id = $_POST['product_id'] ?? '';
+			$cart       = isset( $_COOKIE['dokaani_cart'] ) ? json_decode( stripslashes( $_COOKIE['dokaani_cart'] ), true ) : array();
 
 			if ( isset( $cart[ $product_id ] ) ) {
 				$cart[ $product_id ] ++;
@@ -54,11 +61,13 @@ if ( ! class_exists( 'Cart_Main' ) ) {
 				$cart[ $product_id ] = 1;
 			}
 
-			setcookie( 'dokaani_cart', json_encode( $cart ), time() + ( 86400 * 30 ), "/" );
+			$set = setcookie( 'dokaani_cart', json_encode( $cart ), time() + ( 86400 * 30 ), "/" );
+			if ( $set ) {
+				wp_send_json_success( [ 'message' => esc_html__( 'Cart Added', 'dokaani-cart' ) ] );
+			}
 		}
 
-
-		function cart_display_products() {
+		function display_all_products() {
 			$args = array(
 				'post_type'      => 'product',
 				'posts_per_page' => - 1,
@@ -108,7 +117,7 @@ if ( ! class_exists( 'Cart_Main' ) ) {
                                     <span class="line-through text-base font-bold text-gray-300">$<?php echo get_post_meta( get_the_ID(), 'dokaani_product_regular_price', true ); ?></span>
                                     <span class="text-base font-bold text-gray-950">$<?php echo get_post_meta( get_the_ID(), 'dokaani_product_sale_price', true ); ?></span>
                                 </div>
-                                <button class="text-base font-roboto font-medium text-gray-950 hover:text-white px-8 py-2 rounded-full border border-primary-700 hover:bg-primary-700"><a href="?add_to_cart=<?php echo get_the_ID(); ?>"><?php echo esc_html__('Add to cart','dokaani-cart') ?></a></button>
+                                <button class="dokaani-add-cart text-base font-roboto font-medium text-gray-950 hover:text-white px-8 py-2 rounded-full border border-primary-700 hover:bg-primary-700" data-product-id="<?php echo esc_attr( get_the_ID() ) ?>"><?php echo esc_html__( 'Add To Cart' ) ?></button>
                             </div>
                         </div>
                     </div>
@@ -118,29 +127,20 @@ if ( ! class_exists( 'Cart_Main' ) ) {
 			}
 		}
 
-
-		function cart_products_shortcode() {
-			ob_start();
-			$this->cart_display_products();
-
-			return ob_get_clean();
-		}
-
-
-		function cart_display() {
+		function display_all_carts() {
 			$product_ids = isset( $_COOKIE['dokaani_cart'] ) ? json_decode( stripslashes( $_COOKIE['dokaani_cart'] ), true ) : array();
 			if ( $product_ids && is_array( $product_ids ) ) {
 				foreach ( $product_ids as $product_id => $value ):
 					$thumb_url = get_post_meta( $product_id, 'dokaani_product_thumb_url', true );
 					?>
-                    <div class="rounded-lg border border-gray-200 bg-white p-4 shadow-sm dark:border-gray-700 dark:bg-gray-800 md:p-6">
+                    <div class="dokaani-cart-wrap rounded-lg border border-gray-200 bg-white p-4 shadow-sm dark:border-gray-700 dark:bg-gray-800 md:p-6">
                         <div class="space-y-4 md:flex md:items-center md:justify-between md:gap-6 md:space-y-0">
                             <a href="#" class="shrink-0 md:order-1">
                                 <img class="h-20 w-20 dark:hidden" src="<?php echo $thumb_url; ?>" alt="imac image">
                                 <img class="hidden h-20 w-20 dark:block" src="https://flowbite.s3.amazonaws.com/blocks/e-commerce/imac-front-dark.svg" alt="imac image">
                             </a>
 
-                            <label for="counter-input" class="sr-only"><?php echo esc_html__('Choose quantity:','dokaani-cart') ?></label>
+                            <label for="counter-input" class="sr-only"><?php echo esc_html__( 'Choose quantity:', 'dokaani-cart' ) ?></label>
                             <div class="flex items-center justify-between md:order-3 md:justify-end">
                                 <div class="flex items-center">
                                     <button type="button" id="decrement-button" data-input-counter-decrement="counter-input" class="inline-flex h-5 w-5 shrink-0 items-center justify-center rounded-md border border-gray-300 bg-gray-100 hover:bg-gray-200 focus:outline-none focus:ring-2 focus:ring-gray-100 dark:border-gray-600 dark:bg-gray-700 dark:hover:bg-gray-600 dark:focus:ring-gray-700">
@@ -168,14 +168,14 @@ if ( ! class_exists( 'Cart_Main' ) ) {
                                         <svg class="me-1.5 h-5 w-5" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" width="24" height="24" fill="none" viewBox="0 0 24 24">
                                             <path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12.01 6.001C6.5 1 1 8 5.782 13.001L12.011 20l6.23-7C23 8 17.5 1 12.01 6.002Z"></path>
                                         </svg>
-                                       <?php echo esc_html__(' Add to Favorites','dokaani_cart') ?>
+										<?php echo esc_html__( ' Add to Favorites', 'dokaani_cart' ) ?>
                                     </button>
 
-                                    <button type="button" class="inline-flex items-center text-sm font-medium text-red-600 hover:underline dark:text-red-500">
+                                    <button type="button" class="dokaani-remove-cart inline-flex items-center text-sm font-medium text-red-600 hover:underline dark:text-red-500" data-product-id="<?php echo esc_attr( $product_id ); ?>">
                                         <svg class="me-1.5 h-5 w-5" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" width="24" height="24" fill="none" viewBox="0 0 24 24">
                                             <path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18 17.94 6M18 18 6.06 6"></path>
                                         </svg>
-                                        <a href="?remove_item=<?php echo $product_id; ?>"><?php echo esc_html__( 'Remove','dokaani_cart' ) ?></a>
+										<?php echo esc_html__( 'Remove', 'dokaani_cart' ) ?>
                                     </button>
                                 </div>
                             </div>
@@ -185,35 +185,46 @@ if ( ! class_exists( 'Cart_Main' ) ) {
 			}
 		}
 
-
-		function cart_shortcode() {
+		function shortcode_products() {
 			ob_start();
-			$this->cart_display();
+			$this->display_all_products();
 
 			return ob_get_clean();
 		}
 
+		function shortcode_carts() {
+			ob_start();
+			$this->display_all_carts();
 
-		function cart_remove_item( $product_id ) {
-			$cart = isset( $_COOKIE['dokaani_cart'] ) ? json_decode( stripslashes( $_COOKIE['dokaani_cart'] ), true ) : array();
+			return ob_get_clean();
+		}
 
-			if ( isset( $cart[ $product_id ] ) ) {
-				unset( $cart[ $product_id ] );
+		function front_scripts() {
+			wp_enqueue_script( 'dokaani-cart-front', plugins_url( '/assets/front/js/scripts.js', __FILE__ ), array( 'jquery' ), self::$_script_version );
+			wp_localize_script( 'dokaani-cart-front', 'dokaani_cart', $this->localize_scripts() );
+		}
+
+		function localize_scripts() {
+			return apply_filters( 'cart_filters_localize_scripts', array(
+				'ajaxurl' => admin_url( 'admin-ajax.php' ),
+			) );
+		}
+
+		function define_scripts() {
+			add_action( 'wp_enqueue_scripts', array( $this, 'front_scripts' ) );
+		}
+
+		public static function instance() {
+			if ( is_null( self::$_instance ) ) {
+				self::$_instance = new self();
 			}
 
-			setcookie( 'dokaani_cart', json_encode( $cart ), time() + ( 86400 * 30 ), "/" );
+			return self::$_instance;
 		}
-
-
-		function cart_clear() {
-			setcookie( 'dokaani_cart', '', time() - 3600, "/" );
-		}
-
 
 	}
 
-	new Cart_Main();
+    Cart_Main::instance();
 }
-
 
 
